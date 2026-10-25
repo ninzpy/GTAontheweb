@@ -1,0 +1,18 @@
+const assert = require('node:assert/strict');
+const {create} = require('../support/key-state.js');
+const keys = new Uint8Array(new SharedArrayBuffer(256));
+const state = create(keys,{KeyW:87,ShiftLeft:160,ShiftRight:161,ControlLeft:162,AltRight:165,KeyI:73,Numpad8:104,Enter:13,NumpadEnter:253});
+state.set('keyboard',['KeyW','ShiftLeft','ControlLeft','AltRight']);
+for (const vk of [87,160,16,162,17,165,18]) assert.equal(keys[vk],128);
+state.set('controller',['KeyW','ShiftLeft']);
+state.set('keyboard',[]);
+assert.equal(keys[87],128); assert.equal(keys[16],128); assert.equal(keys[17],0);
+state.set('keyboard',['ShiftRight','KeyI','Numpad8']);
+state.set('controller',[]);
+assert.equal(keys[160],0); assert.equal(keys[161],128); assert.equal(keys[16],128);
+state.set('keyboard',['Numpad8']); assert.equal(keys[104],128);
+state.set('keyboard',[]); assert.equal(keys[104],0);
+state.set('keyboard',['KeyW','ShiftLeft']);
+state.set('controller',['KeyI']);
+state.clear(); assert.ok(keys.every(value=>value===0));
+console.log('PASS: engine modifiers, overlapping input sources, flight aliases and focus release');

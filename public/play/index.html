@@ -1,7 +1,7 @@
 <!doctype html>
 <html>
 <head>
-<script src="/chunk-index.js"></script><script src="/chunk-fetch.js"></script><script src="/__support/controller.js"></script><script defer src="/__support/touch.js"></script><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<script src="/chunk-index.js"></script><script src="/chunk-fetch.js"></script><script src="/__support/key-state.js"></script><script src="/__support/controller.js"></script><script defer src="/__support/touch.js"></script><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta charset="utf-8">
 <title>BTA · GTA V Browser Edition</title>
 <style>
@@ -325,7 +325,7 @@ showModes();
 		if (m.choice && !startMode) { waitingChoice = true; modesEl.classList.add('ask'); showModes(); }		// the engine waits for the choice: showModes asks for it in the label
 		if (m.commit) { startCommitted = true; pickingMap = false; if (m.mode) startMode = m.mode; showModes(); }		// the engine took the choice
 		if (m.compiling !== undefined && !waitingChoice) { label.textContent = lastLabel = 'Preparing shaders'; target = Math.max(target, 99); }		// the world is up; the GPU worker holds it until its pipelines are compiled
-		if (m.world) { ready = true; hud.textContent = 'click the game to capture the mouse (Esc releases it, Shift+P switches keyboard mode, = shows FPS)'; setTimeout(() => { hud.textContent = ''; }, 15000); }
+		if (m.world) { ready = true; hud.textContent = 'click the game to capture the mouse (Esc releases it, = shows FPS)'; setTimeout(() => { hud.textContent = ''; }, 15000); }
 	};
 	// Between reports the bar creeps forward (at most 6 points past the last report) so a long stage does not look frozen.
 	const dataEl = document.getElementById('data');
@@ -554,6 +554,7 @@ function installDebugPanel(memory, block) {
 function installInput(memory, block) {
 	if (q.get('dbg')) installDebugPanel(memory, block);
 	const keys = new Uint8Array(memory.buffer, block, 256);
+	const keyState = PlayGTA5Keys.create(keys, VK);
 	const w = new Int32Array(memory.buffer, block + 256, 10);
 	const U16 = new Uint16Array(memory.buffer, block + 256 + 40, 64);
 	const MX = 0, MY = 1, DX = 2, DY = 3, DZ = 4, BTN = 5, FOCUS = 6, LOCKED = 7, HEAD = 8, TAIL = 9;
@@ -585,7 +586,7 @@ if (!window.PlayGTA5Enhanced) {
     mode.style.cssText = 'position:fixed;right:12px;bottom:12px;z-index:10003;max-width:48vw;min-height:44px;padding:10px 14px;background:#182621e8;color:white;border:1px solid #789184;border-radius:24px;font:14px system-ui;cursor:pointer';
     mode.hidden = true;
     document.body.append(mode);
-    const controller = PlayGTA5Controller.attach({keys,w,VK,canvas,status:text => {
+    const controller = PlayGTA5Controller.attach({keys,w,VK,canvas,setKeyState:codes => keyState.set('controller', codes),status:text => {
         mode.hidden = text === 'Press a controller button to connect';
         if (mode.textContent !== text) mode.textContent = text;
     }});
@@ -599,16 +600,14 @@ if (!window.PlayGTA5Enhanced) {
 	const passThrough = (e) => e.code === 'F12' || e.code === 'F11' || (e.ctrlKey && e.shiftKey && (e.code === 'KeyI' || e.code === 'KeyJ')) || e.code === 'F5';
 	// Aircraft and submarine pitch and roll are on the numpad in the game (8/2/4/6, target select 7/9), which many keyboards lack. The numpad keys are bound to nothing else, so I/K (pitch), J/L (roll)
 	// and U/O (target left/right) press the same keys for the engine; the real numpad keeps working.
-	const FLY_ALIAS = { KeyI: 'Numpad8', KeyK: 'Numpad2', KeyJ: 'Numpad4', KeyL: 'Numpad6', KeyU: 'Numpad7', KeyO: 'Numpad9' };
 	const held = new Set();
-	const syncFlyAlias = () => { for (const [src, target] of Object.entries(FLY_ALIAS)) Atomics.store(keys, VK[target], held.has(src) || held.has(target) ? 0x80 : 0); };
+	const syncKeyboard = () => keyState.set('keyboard', held);
 	addEventListener('keydown', (e) => {
 		if (passThrough(e)) return;
 		e.preventDefault();
 		const vk = VK[e.code];
 		if (!e.repeat) trace('keydown ' + e.code + ' vk=' + (vk || 'UNMAPPED') + ' hasFocus=' + document.hasFocus() + ' engineFocus=' + Atomics.load(w, FOCUS));
-		if (vk) Atomics.store(keys, vk, 0x80);
-		held.add(e.code); syncFlyAlias();
+		held.add(e.code); syncKeyboard();
 		if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
 			const head = Atomics.load(w, HEAD);
 			if (((head - Atomics.load(w, TAIL)) >>> 0) < 64) { U16[head & 63] = e.key.charCodeAt(0); Atomics.store(w, HEAD, (head + 1) | 0); }
@@ -620,16 +619,16 @@ if (!window.PlayGTA5Enhanced) {
 	addEventListener('keyup', (e) => {
 		if (passThrough(e)) return;
 		e.preventDefault();
-		const vk = VK[e.code];
-		if (vk) Atomics.store(keys, vk, 0);
-		held.delete(e.code); syncFlyAlias();
+		held.delete(e.code); syncKeyboard();
 	});
-	const releaseAll = () => { held.clear(); for (let i = 0; i < 256; i++) Atomics.store(keys, i, 0); Atomics.store(w, BTN, 0); };
+	const releaseAll = () => { held.clear(); keyState.clear(); Atomics.store(w, BTN, 0); };
 	addEventListener('focus', () => { trace('window focus'); Atomics.store(w, FOCUS, 1); });
 	addEventListener('blur', () => { trace('window blur (all keys released)'); Atomics.store(w, FOCUS, 0); releaseAll(); });
 
+	document.addEventListener('visibilitychange', () => { if (document.hidden) { Atomics.store(w, FOCUS, 0); releaseAll(); } else { Atomics.store(w, FOCUS, document.hasFocus() ? 1 : 0); } });
 	const locked = () => document.pointerLockElement === canvas;
 	canvas.addEventListener('mousedown', (e) => {
+		canvas.focus({preventScroll:true});
 		if (!locked() && canvas.requestPointerLock && !matchMedia("(pointer:coarse)").matches) { Promise.resolve(canvas.requestPointerLock({ unadjustedMovement: true })).catch(() => Promise.resolve(canvas.requestPointerLock()).catch(() => {})); }
 		Atomics.or(w, BTN, 1 << [0, 2, 1, 3, 4][e.button]);
 		e.preventDefault();

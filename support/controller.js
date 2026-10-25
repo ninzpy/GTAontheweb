@@ -19,11 +19,12 @@
     else { if (pressed(7)) mouse |= 1; if (pressed(6)) mouse |= 2; }
     return {keys, mouse, lookX:axis(pad.axes[2]), lookY:axis(pad.axes[3])};
   }
-  function attach({keys, w, VK, canvas, getPads = () => navigator.getGamepads(), status = () => {}, active = () => true}) {
+  function attach({keys, w, VK, canvas, setKeyState, getPads = () => navigator.getGamepads(), status = () => {}, active = () => true}) {
     const physical = new Set(); let owned = new Set(), ownedMouse = 0, physicalMouse = 0, last = 0, driving = false, toggleHeld = false;
     let remainderX = 0, remainderY = 0;
     function apply(next) {
-      for (const code of new Set([...owned, ...next.keys])) if (VK[code]) Atomics.store(keys, VK[code], physical.has(code) || next.keys.has(code) ? 128 : 0);
+      if (setKeyState) setKeyState(next.keys);
+      else for (const code of new Set([...owned, ...next.keys])) if (VK[code]) Atomics.store(keys, VK[code], physical.has(code) || next.keys.has(code) ? 128 : 0);
       owned = next.keys;
       const current = Atomics.load(w, 5);
       Atomics.store(w, 5, (current & ~ownedMouse) | physicalMouse | next.mouse);

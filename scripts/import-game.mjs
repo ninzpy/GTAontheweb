@@ -27,7 +27,7 @@ let existing = new Set();
 if (!dryRun) {
   if (!process.env.NETLIFY_SITE_ID || !process.env.NETLIFY_AUTH_TOKEN) throw new Error('The import needs Netlify site credentials in the process environment.');
   // Explicit credentials are used only by this offline administration script, never in browser code or Functions.
-  store = getStore({ name: index.store, siteID: process.env.NETLIFY_SITE_ID, token: process.env.NETLIFY_AUTH_TOKEN });
+  store = getStore({ name: index.store, consistency: 'strong', siteID: process.env.NETLIFY_SITE_ID, token: process.env.NETLIFY_AUTH_TOKEN });
   const listed = await store.list();
   existing = new Set(listed.blobs.map(b => b.key));
 }
