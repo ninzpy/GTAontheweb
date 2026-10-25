@@ -227,3 +227,11 @@ the compiled snapshot's known engine limitations still apply.
 
 Story saves remain browser scoped. Saves from other game hosts do not transfer
 automatically. No launcher accounts or multiplayer service are included.
+
+Keyboard, controller, and touch controls share one virtual-key state. Left/right
+Shift, Control, and Alt also set the engine's generic modifier keys; releasing
+one input source preserves keys held by another. I/K, J/L, and U/O retain the
+flight numpad aliases. Leaving or hiding the page releases all held controls.
+Run `node tests/test_key_state.cjs` and `node tests/test_touch.cjs` to check these
+input behaviors. The administrative import and audit use strong consistency so
+completion checks include objects uploaded moments earlier.

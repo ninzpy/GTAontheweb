@@ -10,7 +10,7 @@ const catalog = JSON.parse(await readFile(new URL('../hosting/game-assets.json',
 const manifestCode = await readFile(new URL('../public/chunk-index.js', import.meta.url), 'utf8');
 const manifest = JSON.parse(manifestCode.slice('globalThis.GAME_CHUNKS='.length).replace(/;\s*$/, ''));
 const inventory = JSON.parse(await readFile(new URL('../file-inventory.json', import.meta.url)));
-const store = getStore({ name: catalog.store, siteID: process.env.NETLIFY_SITE_ID, token: process.env.NETLIFY_AUTH_TOKEN });
+const store = getStore({ name: catalog.store, consistency: 'strong', siteID: process.env.NETLIFY_SITE_ID, token: process.env.NETLIFY_AUTH_TOKEN });
 const request = (path, headers = {}, method = 'GET') => new Request('https://bta-storage-check.invalid' + path, { headers, method });
 const status = await serveGameAsset(request('/api/game-status'), store, catalog);
 if (status.status !== 200 || !(await status.json()).ready) throw new Error('Complete-copy readiness check failed.');
